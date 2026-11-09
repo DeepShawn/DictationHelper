@@ -41,9 +41,14 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew testDebugUnitTest assembleDebug assembleRelease --stacktrace
 
+      - name: Read version
+        run: |
+          VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
       - name: Rename APKs
         run: |
-          VERSION="${GITHUB_REF_NAME//\//-}"
+          VERSION="v${VERSION_NAME}"
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk "dist/DictationHelper-${VERSION}-release.apk"
           cp app/build/outputs/apk/debug/*.apk "dist/DictationHelper-${VERSION}-debug.apk"
@@ -53,10 +58,16 @@ jobs:
           name: DictationHelper-apk
           path: dist/*.apk
 
+      # 推送代码时自动发布 / 更新 v<versionName> 的 Release（标签由 Action 创建）；
+      # 发布新版本只需修改 app/build.gradle.kts 中的 versionName
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION_NAME }}
+          name: 听写助手 v${{ env.VERSION_NAME }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           files: dist/*.apk
           generate_release_notes: false
           body_path: RELEASE_NOTES.md
