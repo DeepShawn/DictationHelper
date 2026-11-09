@@ -16,13 +16,25 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        // CI 中通过环境变量提供正式签名；未提供时退回 debug 签名
+        val storeFilePath = System.getenv("SIGNING_STORE_FILE")
+        if (!storeFilePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(storeFilePath)
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // 未配置签名时使用 debug 签名，方便直接安装体验
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
